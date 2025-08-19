@@ -11,7 +11,7 @@ Monorepo for a simple CMS consisting of:
 
 ## Prerequisites
 
-- Node.js 20+ and npm (or yarn/pnpm/bun)
+- Node.js 20+ and pnpm (Corepack recommended: `corepack enable`)
 - Java 21 (JDK 21)
 - Maven not required globally (the project uses `mvnw`)
 
@@ -23,8 +23,8 @@ Frontend (Next.js):
 
 ```bash
 cd cms-frontend
-npm install
-npm run dev
+pnpm install
+pnpm dev
 # Next.js runs at http://localhost:3000
 ```
 
@@ -48,10 +48,10 @@ cd cms-backend
 ## Scripts
 
 Frontend:
-- `npm run dev` — start dev server
-- `npm run build` — production build
-- `npm start` — run the built app
-- `npm run lint` — lint with ESLint
+- `pnpm dev` — start dev server
+- `pnpm build` — production build
+- `pnpm start` — run the built app
+- `pnpm lint` — lint with ESLint
 
 Backend:
 - `./mvnw spring-boot:run` — run the app
@@ -63,9 +63,9 @@ Backend:
 Frontend:
 ```bash
 cd cms-frontend
-npm install
-npm run build
-npm start
+pnpm install
+pnpm build
+pnpm start
 ```
 
 Backend:
@@ -90,9 +90,52 @@ java -jar target/cms-backend-0.0.1-SNAPSHOT.jar
 
 ## Troubleshooting
 
-- Port conflicts: change Next.js port via `PORT=3001 npm run dev` or set Spring port with `server.port=8081`.
+- Port conflicts: change Next.js port via `PORT=3001 pnpm dev` or set Spring port with `server.port=8081`.
 - Java version: ensure `java -version` shows 21.
 - Node version: ensure `node -v` is 20+.
+
+## Docker (local)
+
+If you want to run the Next.js app in a container locally, build a small base image with dependencies first (pnpm), then build the app image that uses it.
+
+1) Build the Next.js base image (dependencies only) using the provided base Dockerfile:
+
+```bash
+docker build -t cms-frontend:base -f cms-frontend/Dockerfile.base cms-frontend
+```
+
+The base image installs pnpm and resolves dependencies using the lockfile for better cache reuse.
+
+2) Build the frontend image using the base
+
+```bash
+# BASE_IMAGE points to the base we just built; IMAGE is the runtime
+DOCKER_BUILDKIT=1 docker build \
+  -t cms-frontend:local \
+  --build-arg BASE_IMAGE=cms-frontend:base \
+  --build-arg IMAGE=node:20.18.3-alpine \
+  -f cms-frontend/Dockerfile cms-frontend
+```
+
+3) Run the frontend container
+
+```bash
+docker run --rm -p 3000:3000 cms-frontend:local
+# Open http://localhost:3000
+```
+
+Notes:
+- The current Dockerfile defines optional lint/test stages; if those scripts aren’t present, build the final image directly by targeting the `runner` stage:
+
+```bash
+docker build -t cms-frontend:local \
+  --target runner \
+  --build-arg BASE_IMAGE=cms-frontend:base \
+  --build-arg IMAGE=node:20.18.3-alpine \
+  -f cms-frontend/Dockerfile cms-frontend
+```
+
+- For full-stack containers, add a backend Dockerfile and a root `docker-compose.yml` to orchestrate both services with networking (e.g., frontend env `NEXT_PUBLIC_API_BASE_URL=http://backend:8080`).
 
 ## License
 

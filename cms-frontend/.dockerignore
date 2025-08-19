@@ -1,0 +1,13 @@
+# Ignore large/unnecessary files for Docker context
+node_modules
+.next
+out
+dist
+build
+.cache
+
+# OS / tooling
+.DS_Store
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
