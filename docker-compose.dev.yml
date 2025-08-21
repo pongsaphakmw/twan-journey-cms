@@ -1,0 +1,82 @@
+services:
+  # Optional: build reusable dependency layers first (use with: --profile base)
+  # For example : docker compose -f docker-compose.dev.yml --profile base build backend-base frontend-base
+  frontend-base:
+    image: cms-frontend:base
+    build:
+      context: ./cms-frontend
+      dockerfile: Dockerfile.base
+    command: ["true"]
+    profiles: ["base"]
+
+  backend-base:
+    image: cms-backend:base-backend
+    build:
+      context: ./cms-backend
+      dockerfile: Dockerfile.base
+    command: ["true"]
+    profiles: ["base"]
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: cms-postgres
+    environment:
+      POSTGRES_DB: cmsdb-dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      TZ: Asia/Bangkok
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - app-net
+
+  backend:
+    build:
+      context: ./cms-backend
+      dockerfile: Dockerfile
+      args:
+        BASE_IMAGE: cms-backend:base-backend
+    environment:
+      TZ: Asia/Bangkok
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cmsdb-dev
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    networks:
+      - app-net
+
+  frontend:
+    build:
+      context: ./cms-frontend
+      dockerfile: Dockerfile
+      args:
+        BASE_IMAGE: cms-frontend:base
+        IMAGE: node:20.18.3-alpine
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: http://backend:8080
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+    networks:
+      - app-net
+
+volumes:
+  pg-data: {}
+
+networks:
+  app-net:
+    driver: bridge

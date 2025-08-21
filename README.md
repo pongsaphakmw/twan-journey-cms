@@ -137,6 +137,53 @@ docker build -t cms-frontend:local \
 
 - For full-stack containers, add a backend Dockerfile and a root `docker-compose.yml` to orchestrate both services with networking (e.g., frontend env `NEXT_PUBLIC_API_BASE_URL=http://backend:8080`).
 
+## Docker Compose (dev stack)
+
+Use the provided `docker-compose.dev.yml` to run Postgres, the Spring Boot backend, and the Next.js frontend together.
+
+1) Build the reusable base images (faster subsequent builds):
+
+```bash
+docker compose -f docker-compose.dev.yml --profile base build backend-base frontend-base
+```
+
+2) Bring the stack up:
+
+```bash
+docker compose -f docker-compose.dev.yml up --build
+# Ctrl+C to stop, or run in detached mode with -d
+```
+
+Services and ports:
+- Postgres: localhost:5432 (db: `cmsdb-dev`, user: `postgres`, pass: `postgres`)
+- Backend: http://localhost:8080
+  - Spring is configured via env vars in compose:
+    - `SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/cmsdb-dev`
+    - `SPRING_DATASOURCE_USERNAME=postgres`
+    - `SPRING_DATASOURCE_PASSWORD=postgres`
+- Frontend: http://localhost:3000
+  - `NEXT_PUBLIC_API_URL` points to `http://backend:8080` inside the compose network
+
+Notes:
+- Base images built by the profile are tagged as:
+  - `cms-backend:base-backend` (from `cms-backend/Dockerfile.base`)
+  - `cms-frontend:base` (from `cms-frontend/Dockerfile.base`)
+- Compose uses those bases to speed up the main images’ builds.
+- If you don’t want to build bases, you can skip step 1; builds will still work, just slower on cold caches.
+- To actually use Postgres in the backend, add the JDBC driver and JPA starter to `cms-backend/pom.xml`:
+
+```xml
+<dependency>
+  <groupId>org.springframework.boot</groupId>
+  <artifactId>spring-boot-starter-data-jpa</artifactId>
+</dependency>
+<dependency>
+  <groupId>org.postgresql</groupId>
+  <artifactId>postgresql</artifactId>
+  <scope>runtime</scope>
+</dependency>
+```
+
 ## License
 
 Add a license file if you plan to distribute.
